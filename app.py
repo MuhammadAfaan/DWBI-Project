@@ -145,28 +145,56 @@ if page == "Executive Overview":
     st.caption("Monthly revenue, orders, and average order value trends")
     from data_loader import load_monthly_sales
     from views.page_executive import render
-    render(load_monthly_sales())
+    df = load_monthly_sales()
+    if not df.empty:
+        years = sorted(df["year"].dropna().unique())
+        sel_years = st.sidebar.multiselect("Filter by Year", years, default=years)
+        if sel_years:
+            df = df[df["year"].isin(sel_years)]
+    render(df)
 
 elif page == "Logistics & Delivery":
     st.markdown("<h1>Logistics & Delivery Health</h1>", unsafe_allow_html=True)
     st.caption("Late delivery rates by Brazilian state — where are the problem zones?")
     from data_loader import load_logistics_health
     from views.page_logistics import render
-    render(load_logistics_health())
+    df = load_logistics_health()
+    if not df.empty:
+        states = sorted(df["customer_state"].dropna().unique())
+        sel_states = st.sidebar.multiselect("Filter by State", states, default=[])
+        if sel_states:
+            df = df[df["customer_state"].isin(sel_states)]
+    render(df)
 
 elif page == "Delivery & Satisfaction":
     st.markdown("<h1>Delivery Speed vs Customer Satisfaction</h1>", unsafe_allow_html=True)
     st.caption("Does late delivery really cause bad reviews? The data says yes.")
     from data_loader import load_delivery_review_correlation, load_customer_satisfaction
     from views.page_satisfaction import render
-    render(load_delivery_review_correlation(), load_customer_satisfaction())
+    df_corr = load_delivery_review_correlation()
+    df_sat = load_customer_satisfaction()
+    if not df_sat.empty:
+        states = sorted(df_sat["customer_state"].dropna().unique())
+        sel_states = st.sidebar.multiselect("Filter by State", states, default=[])
+        if sel_states:
+            df_sat = df_sat[df_sat["customer_state"].isin(sel_states)]
+    render(df_corr, df_sat)
 
 elif page == "Product & Category":
     st.markdown("<h1>Product & Category Analysis</h1>", unsafe_allow_html=True)
     st.caption("Revenue by category, freight-to-price ratios, and margin risks")
     from data_loader import load_product_performance, load_category_freight_ratio
     from views.page_products import render
-    render(load_product_performance(), load_category_freight_ratio())
+    df_prod = load_product_performance()
+    df_freight = load_category_freight_ratio()
+    if not df_prod.empty:
+        categories = sorted(df_prod["product_category"].dropna().unique())
+        sel_cats = st.sidebar.multiselect("Filter by Category", categories, default=[])
+        if sel_cats:
+            df_prod = df_prod[df_prod["product_category"].isin(sel_cats)]
+            if not df_freight.empty:
+                df_freight = df_freight[df_freight["product_category"].isin(sel_cats)]
+    render(df_prod, df_freight)
 
 elif page == "Seller Performance":
     st.markdown("<h1>Seller Performance Scorecard</h1>", unsafe_allow_html=True)

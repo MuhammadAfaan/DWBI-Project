@@ -167,7 +167,16 @@ def train():
         verbose=2  # Added verbosity to show progress
     )
     rf.fit(X_train, y_train)
-    rf_metrics = evaluate_model("Random Forest", rf, X_test, y_test)
+    
+    print("\n" + "▼"*50)
+    print("  [TRAINING SET PERFORMANCE] - Random Forest")
+    print("  (How well it memorized the data it learned from)")
+    evaluate_model("Random Forest (Train Data)", rf, X_train, y_train)
+    
+    print("\n" + "▼"*50)
+    print("  [TESTING SET PERFORMANCE] - Random Forest")
+    print("  (How well it predicts on completely new, unseen data)")
+    rf_metrics = evaluate_model("Random Forest (Test Data)", rf, X_test, y_test)
 
     # Cross-validation
     print("      🔄 Running Cross-Validation (5-fold)...")
@@ -184,7 +193,10 @@ def train():
         random_state=42,
     )
     lr.fit(X_train, y_train)
-    lr_metrics = evaluate_model("Logistic Regression", lr, X_test, y_test)
+    print("\n  [TRAINING SET] - Logistic Regression")
+    evaluate_model("Logistic Regression (Train Data)", lr, X_train, y_train)
+    print("\n  [TESTING SET] - Logistic Regression")
+    lr_metrics = evaluate_model("Logistic Regression (Test Data)", lr, X_test, y_test)
 
     # ── Feature importance (from RF) ─────────────────────────
     fi = pd.DataFrame({
