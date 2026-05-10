@@ -269,39 +269,6 @@ SELECT TOP 10
 FROM gold.fact_orders;
 GO
 
--- 5E. Cross-layer row count comparison (Bronze → Silver → Gold)
--- "This proves data flows correctly through each layer"
-SELECT 'Orders'    AS entity, 
-       (SELECT COUNT(*) FROM bronze.orders)     AS bronze_count,
-       (SELECT COUNT(*) FROM silver.orders)     AS silver_count,
-       (SELECT COUNT(*) FROM gold.fact_orders)  AS gold_count
-UNION ALL
-SELECT 'Customers',
-       (SELECT COUNT(*) FROM bronze.customers),
-       (SELECT COUNT(*) FROM silver.customers),
-       (SELECT COUNT(*) FROM gold.dim_customer)
-UNION ALL
-SELECT 'Products',
-       (SELECT COUNT(*) FROM bronze.products),
-       (SELECT COUNT(*) FROM silver.products),
-       (SELECT COUNT(*) FROM gold.dim_product)
-UNION ALL
-SELECT 'Sellers',
-       (SELECT COUNT(*) FROM bronze.sellers),
-       (SELECT COUNT(*) FROM silver.sellers),
-       (SELECT COUNT(*) FROM gold.dim_seller)
-UNION ALL
-SELECT 'Order Items',
-       (SELECT COUNT(*) FROM bronze.order_items),
-       (SELECT COUNT(*) FROM silver.order_items),
-       (SELECT COUNT(*) FROM gold.fact_order_items)
-UNION ALL
-SELECT 'Reviews',
-       (SELECT COUNT(*) FROM bronze.order_reviews),
-       (SELECT COUNT(*) FROM silver.order_reviews),
-       (SELECT COUNT(*) FROM gold.fact_reviews);
-GO
-
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- SECTION 6: ETL AUDIT TRAIL — Full Pipeline Verification
 -- ═══════════════════════════════════════════════════════════════════════════════
@@ -424,32 +391,3 @@ ORDER BY
         WHEN 'gold'   THEN 3
     END;
 GO
-
--- ═══════════════════════════════════════════════════════════════════════════════
--- SECTION 9: FULL OBJECT INVENTORY
--- ═══════════════════════════════════════════════════════════════════════════════
--- "Here's the complete summary of everything in the data warehouse"
-
-SELECT 
-    s.name AS [schema],
-    CASE 
-        WHEN o.type = 'U'  THEN 'Table'
-        WHEN o.type = 'V'  THEN 'View'
-        WHEN o.type = 'P'  THEN 'Stored Procedure'
-        WHEN o.type = 'FN' THEN 'Function'
-    END AS object_type,
-    o.name AS object_name,
-    o.create_date
-FROM sys.objects o
-JOIN sys.schemas s ON o.schema_id = s.schema_id
-WHERE s.name IN ('bronze', 'silver', 'gold', 'meta')
-  AND o.type IN ('U', 'V', 'P', 'FN')
-ORDER BY s.name, o.type, o.name;
-GO
-
--- ═══════════════════════════════════════════════════════════════════════════════
--- END OF DEMO PIPELINE
--- ═══════════════════════════════════════════════════════════════════════════════
--- Total objects: ~40+ (9 Bronze tables, 18 Silver tables, 7 Gold tables,
---                     3 Meta tables, 8 Gold views, 3 Stored Procedures, 1 UDF)
--- ═══════════════════════════════════════════════════════════════════════════════
