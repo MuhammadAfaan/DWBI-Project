@@ -16,6 +16,9 @@ BEGIN
         -- =============================================
         -- 1. LOAD DIM CUSTOMER (With Geo)
         -- =============================================
+        INSERT INTO meta.etl_audit (run_id, layer_name, object_name, step_name, status, message)
+        VALUES (@run_id, 'GOLD', 'gold.dim_customer', 'LOAD_GOLD_DIM_CUSTOMER', 'STARTED', 'Loading dim_customer with geolocation');
+
         TRUNCATE TABLE gold.dim_customer;
         
         INSERT INTO gold.dim_customer (customer_id, customer_unique_id, customer_zip_code_prefix, customer_city, customer_state, latitude, longitude)
@@ -25,9 +28,18 @@ BEGIN
         FROM silver.customers c
         LEFT JOIN silver.geolocation g ON c.customer_zip_code_prefix = g.geolocation_zip_code_prefix;
 
+        UPDATE meta.etl_audit
+        SET status    = 'SUCCESS',
+            row_count = (SELECT COUNT(*) FROM gold.dim_customer),
+            message   = CONCAT('dim_customer loaded: ', (SELECT COUNT(*) FROM gold.dim_customer))
+        WHERE run_id = @run_id AND step_name = 'LOAD_GOLD_DIM_CUSTOMER';
+
         -- =============================================
         -- 2. LOAD DIM SELLER (With Geo)
         -- =============================================
+        INSERT INTO meta.etl_audit (run_id, layer_name, object_name, step_name, status, message)
+        VALUES (@run_id, 'GOLD', 'gold.dim_seller', 'LOAD_GOLD_DIM_SELLER', 'STARTED', 'Loading dim_seller with geolocation');
+
         TRUNCATE TABLE gold.dim_seller;
 
         INSERT INTO gold.dim_seller (seller_id, seller_zip_code_prefix, seller_city, seller_state, latitude, longitude)
@@ -37,9 +49,18 @@ BEGIN
         FROM silver.sellers s
         LEFT JOIN silver.geolocation g ON s.seller_zip_code_prefix = g.geolocation_zip_code_prefix;
 
+        UPDATE meta.etl_audit
+        SET status    = 'SUCCESS',
+            row_count = (SELECT COUNT(*) FROM gold.dim_seller),
+            message   = CONCAT('dim_seller loaded: ', (SELECT COUNT(*) FROM gold.dim_seller))
+        WHERE run_id = @run_id AND step_name = 'LOAD_GOLD_DIM_SELLER';
+
         -- =============================================
         -- 3. LOAD DIM PRODUCT (With Translation)
         -- =============================================
+        INSERT INTO meta.etl_audit (run_id, layer_name, object_name, step_name, status, message)
+        VALUES (@run_id, 'GOLD', 'gold.dim_product', 'LOAD_GOLD_DIM_PRODUCT', 'STARTED', 'Loading dim_product with English translation');
+
         TRUNCATE TABLE gold.dim_product;
 
         INSERT INTO gold.dim_product (product_id, product_category_english, product_weight_g, product_length_cm, product_height_cm, product_width_cm)
@@ -50,9 +71,18 @@ BEGIN
         FROM silver.products p
         LEFT JOIN silver.category_translation t ON p.product_category_name = t.product_category_name;
 
+        UPDATE meta.etl_audit
+        SET status    = 'SUCCESS',
+            row_count = (SELECT COUNT(*) FROM gold.dim_product),
+            message   = CONCAT('dim_product loaded: ', (SELECT COUNT(*) FROM gold.dim_product))
+        WHERE run_id = @run_id AND step_name = 'LOAD_GOLD_DIM_PRODUCT';
+
         -- =============================================
         -- 4. LOAD FACT ORDER ITEMS
         -- =============================================
+        INSERT INTO meta.etl_audit (run_id, layer_name, object_name, step_name, status, message)
+        VALUES (@run_id, 'GOLD', 'gold.fact_order_items', 'LOAD_GOLD_FACT_ORDER_ITEMS', 'STARTED', 'Loading fact_order_items with surrogate keys');
+
         TRUNCATE TABLE gold.fact_order_items;
 
         INSERT INTO gold.fact_order_items (order_id, order_item_id, customer_sk, seller_sk, product_sk, order_date_key, price, freight_value)
@@ -71,9 +101,18 @@ BEGIN
         LEFT JOIN gold.dim_seller s ON oi.seller_id = s.seller_id
         LEFT JOIN gold.dim_product p ON oi.product_id = p.product_id;
 
+        UPDATE meta.etl_audit
+        SET status    = 'SUCCESS',
+            row_count = (SELECT COUNT(*) FROM gold.fact_order_items),
+            message   = CONCAT('fact_order_items loaded: ', (SELECT COUNT(*) FROM gold.fact_order_items))
+        WHERE run_id = @run_id AND step_name = 'LOAD_GOLD_FACT_ORDER_ITEMS';
+
         -- =============================================
         -- 5. LOAD FACT ORDERS (With Logistics KPIs)
         -- =============================================
+        INSERT INTO meta.etl_audit (run_id, layer_name, object_name, step_name, status, message)
+        VALUES (@run_id, 'GOLD', 'gold.fact_orders', 'LOAD_GOLD_FACT_ORDERS', 'STARTED', 'Loading fact_orders with delivery KPIs');
+
         TRUNCATE TABLE gold.fact_orders;
 
         -- Pre-aggregate payments to avoid duplicating order rows
@@ -101,9 +140,18 @@ BEGIN
         LEFT JOIN gold.dim_customer c ON o.customer_id = c.customer_id
         LEFT JOIN OrderPayments op ON o.order_id = op.order_id;
 
+        UPDATE meta.etl_audit
+        SET status    = 'SUCCESS',
+            row_count = (SELECT COUNT(*) FROM gold.fact_orders),
+            message   = CONCAT('fact_orders loaded: ', (SELECT COUNT(*) FROM gold.fact_orders))
+        WHERE run_id = @run_id AND step_name = 'LOAD_GOLD_FACT_ORDERS';
+
         -- =============================================
         -- 6. LOAD FACT REVIEWS (With Customer Link)
         -- =============================================
+        INSERT INTO meta.etl_audit (run_id, layer_name, object_name, step_name, status, message)
+        VALUES (@run_id, 'GOLD', 'gold.fact_reviews', 'LOAD_GOLD_FACT_REVIEWS', 'STARTED', 'Loading fact_reviews with response time');
+
         TRUNCATE TABLE gold.fact_reviews;
 
         INSERT INTO gold.fact_reviews (
@@ -122,6 +170,12 @@ BEGIN
         FROM silver.order_reviews r
         JOIN silver.orders o ON r.order_id = o.order_id
         LEFT JOIN gold.dim_customer c ON o.customer_id = c.customer_id;
+
+        UPDATE meta.etl_audit
+        SET status    = 'SUCCESS',
+            row_count = (SELECT COUNT(*) FROM gold.fact_reviews),
+            message   = CONCAT('fact_reviews loaded: ', (SELECT COUNT(*) FROM gold.fact_reviews))
+        WHERE run_id = @run_id AND step_name = 'LOAD_GOLD_FACT_REVIEWS';
 
         -- =============================================
         -- MARK PIPELINE SUCCESS
