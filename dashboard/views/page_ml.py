@@ -126,71 +126,80 @@ def render():
     st.markdown("### Live Order Risk Predictor")
     st.caption("Input order attributes to predict late-delivery risk in real-time.")
 
-    encoders = load_encoders()
-    states = list(encoders["customer_state"].classes_) if encoders and "customer_state" in encoders else ["SP", "RJ", "MG"]
-    categories = list(encoders["dominant_category"].classes_) if encoders and "dominant_category" in encoders else ["housewares"]
+    from ml.predict import load_model
+    model = load_model()
 
-    with st.container():
-        st.markdown("""
-        <style>
-        div[data-testid="stForm"] {
-            border: none;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            border-radius: 12px;
-            padding: 30px;
-            background-color: #ffffff;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        with st.form("predict_form"):
-            fc1, fc2, fc3 = st.columns(3)
-            with fc1:
-                cust_state = st.selectbox("Customer State", states, index=0)
-                order_month = st.slider("Order Month", 1, 12, 6)
-                total_items = st.number_input("Total Items", 1, 50, 2)
-                total_price = st.number_input("Total Price (R$)", 1.0, 10000.0, 150.0)
-            with fc2:
-                seller_state = st.selectbox("Seller State", states, index=0)
-                order_dow = st.slider("Day of Week (0=Mon)", 0, 6, 2)
-                total_freight = st.number_input("Total Freight (R$)", 0.0, 500.0, 25.0)
-                num_sellers = st.number_input("Distinct Sellers", 1, 10, 1)
-            with fc3:
-                category = st.selectbox("Dominant Category", categories, index=0)
-                is_weekend = st.selectbox("Is Weekend?", [0, 1], index=0)
+    if model is None:
+        st.info("🔒 **Live prediction is available in the local version only.** "
+                "The trained Random Forest model (56 MB) is too large for cloud deployment. "
+                "All pre-computed predictions and charts above are fully functional.",
+                icon="ℹ️")
+    else:
+        encoders = load_encoders()
+        states = list(encoders["customer_state"].classes_) if encoders and "customer_state" in encoders else ["SP", "RJ", "MG"]
+        categories = list(encoders["dominant_category"].classes_) if encoders and "dominant_category" in encoders else ["housewares"]
 
-            st.markdown("<br>", unsafe_allow_html=True)
-            submitted = st.form_submit_button("Predict Risk", type="primary", use_container_width=True)
-
-    if submitted:
-        avg_price = total_price / max(total_items, 1)
-        avg_freight = total_freight / max(total_items, 1)
-        fr_ratio = total_freight / max(total_price + total_freight, 0.01)
-        quarter = (order_month - 1) // 3 + 1
-        cross = 1 if cust_state != seller_state else 0
-
-        result = predict_single_order(
-            customer_state=cust_state, order_month=order_month, order_quarter=quarter,
-            order_day_of_week=order_dow, order_is_weekend=is_weekend,
-            total_payment_value=total_price + total_freight,
-            total_items=total_items, total_price=total_price, total_freight=total_freight,
-            avg_item_price=avg_price, avg_freight_per_item=avg_freight, freight_ratio=fr_ratio,
-            dominant_category=category, num_distinct_sellers=num_sellers,
-            primary_seller_state=seller_state, is_cross_state=cross,
-        )
-
-        if "error" in result:
-            st.error(result["error"])
-        else:
-            tier = result["risk_tier"]
-            color = RISK_COLORS.get(tier, C["PRIMARY"])
-            prob = result["probability"]
-            st.markdown(f"""
-            <div style="background: {color}15; border-left: 6px solid {color};
-                        border-radius: 8px; padding: 24px; margin: 24px 0;
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <h2 style="color: {color}; margin:0; font-size: 1.5rem;">Risk Level: {tier}</h2>
-                <p style="color: #4b5563; font-size: 1.1rem; margin: 8px 0 0 0;">
-                    Late delivery probability: <strong style="color: #111827;">{prob:.1%}</strong>
-                </p>
-            </div>
+        with st.container():
+            st.markdown("""
+            <style>
+            div[data-testid="stForm"] {
+                border: none;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                border-radius: 12px;
+                padding: 30px;
+                background-color: #ffffff;
+            }
+            </style>
             """, unsafe_allow_html=True)
+            with st.form("predict_form"):
+                fc1, fc2, fc3 = st.columns(3)
+                with fc1:
+                    cust_state = st.selectbox("Customer State", states, index=0)
+                    order_month = st.slider("Order Month", 1, 12, 6)
+                    total_items = st.number_input("Total Items", 1, 50, 2)
+                    total_price = st.number_input("Total Price (R$)", 1.0, 10000.0, 150.0)
+                with fc2:
+                    seller_state = st.selectbox("Seller State", states, index=0)
+                    order_dow = st.slider("Day of Week (0=Mon)", 0, 6, 2)
+                    total_freight = st.number_input("Total Freight (R$)", 0.0, 500.0, 25.0)
+                    num_sellers = st.number_input("Distinct Sellers", 1, 10, 1)
+                with fc3:
+                    category = st.selectbox("Dominant Category", categories, index=0)
+                    is_weekend = st.selectbox("Is Weekend?", [0, 1], index=0)
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                submitted = st.form_submit_button("Predict Risk", type="primary", use_container_width=True)
+
+        if submitted:
+            avg_price = total_price / max(total_items, 1)
+            avg_freight = total_freight / max(total_items, 1)
+            fr_ratio = total_freight / max(total_price + total_freight, 0.01)
+            quarter = (order_month - 1) // 3 + 1
+            cross = 1 if cust_state != seller_state else 0
+
+            result = predict_single_order(
+                customer_state=cust_state, order_month=order_month, order_quarter=quarter,
+                order_day_of_week=order_dow, order_is_weekend=is_weekend,
+                total_payment_value=total_price + total_freight,
+                total_items=total_items, total_price=total_price, total_freight=total_freight,
+                avg_item_price=avg_price, avg_freight_per_item=avg_freight, freight_ratio=fr_ratio,
+                dominant_category=category, num_distinct_sellers=num_sellers,
+                primary_seller_state=seller_state, is_cross_state=cross,
+            )
+
+            if "error" in result:
+                st.error(result["error"])
+            else:
+                tier = result["risk_tier"]
+                color = RISK_COLORS.get(tier, C["PRIMARY"])
+                prob = result["probability"]
+                st.markdown(f"""
+                <div style="background: {color}15; border-left: 6px solid {color};
+                            border-radius: 8px; padding: 24px; margin: 24px 0;
+                            box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <h2 style="color: {color}; margin:0; font-size: 1.5rem;">Risk Level: {tier}</h2>
+                    <p style="color: #4b5563; font-size: 1.1rem; margin: 8px 0 0 0;">
+                        Late delivery probability: <strong style="color: #111827;">{prob:.1%}</strong>
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
